@@ -22,10 +22,8 @@ def load_users():
                 email, password, role = line.strip().split(',')
                 users[email] = {"password": password, "role": role}
     else:
-        # Jika file tidak ada, buat admin default
-        with open(USER_FILE, 'w') as f:
-            f.write("admin@example.com,admin123,admin\n")
-        users["admin@example.com"] = {"password": "admin123", "role": "admin"}
+        # File dibuat kosong tanpa admin default
+        open(USER_FILE, 'w').close()
 
 # Simpan semua users ke file
 def save_all_users():
@@ -46,10 +44,26 @@ def register():
         print("\nEmail sudah terdaftar.\n")
         return
     password = input("Password: ")
-    role = "pasien"  # Registrasi hanya untuk pasien
+
+    print("Pilih role:")
+    print("1. Pasien")
+    print("2. Dokter")
+    print("3. Admin")
+    role_choice = input("Masukkan angka sesuai role: ")
+
+    if role_choice == '1':
+        role = "pasien"
+    elif role_choice == '2':
+        role = "dokter"
+    elif role_choice == '3':
+        role = "admin"
+    else:
+        print("\nRole tidak valid. Registrasi dibatalkan.\n")
+        return
+
     users[email] = {"password": password, "role": role}
     save_user(email, password, role)
-    print("\nRegistrasi berhasil!\n")
+    print(f"\nRegistrasi berhasil sebagai {role}!\n")
 
 # Fungsi login
 def login():
@@ -111,7 +125,7 @@ def menu():
         print("""
 ===== Menu =====
 1. Login
-2. Register (Pasien saja)
+2. Register (Semua Role)
 3. Logout
 4. Hapus User (Admin)
 5. Edit User (Admin)
