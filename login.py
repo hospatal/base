@@ -1,6 +1,6 @@
-import json
-import queue
 import os
+import getpass
+import hashlib
 
 # Data pengguna
 users = {}
@@ -9,73 +9,88 @@ users = {}
 current_user = None
 current_role = None
 
-# File penyimpanan pengguna
-USER_FILE = 'users.txt'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+USER_FILE = os.path.join(script_dir, 'users.txt')
 
-# Load users dari file
 def load_users():
     global users
     users.clear()
     if os.path.exists(USER_FILE):
         with open(USER_FILE, 'r') as f:
             for line in f:
-                email, password, role = line.strip().split(',')
-                users[email] = {"password": password, "role": role}
+                try:
+                    email, password, role = line.strip().split(',')
+                    users[email] = {"password": password, "role": role}
+                except ValueError:
+                    print(f"Peringatan: Baris data pengguna tidak valid di {USER_FILE}: {line.strip()}")
     else:
-        # File dibuat kosong tanpa admin default
         open(USER_FILE, 'w').close()
+        print(f"Info: File {USER_FILE} tidak ditemukan, file baru telah dibuat.")
 
-# Simpan semua users ke file
 def save_all_users():
     with open(USER_FILE, 'w') as f:
         for email, data in users.items():
             f.write(f"{email},{data['password']},{data['role']}\n")
 
-# Simpan user baru ke file
 def save_user(email, password, role):
+    users[email] = {"password": password, "role": role}
     with open(USER_FILE, 'a') as f:
         f.write(f"{email},{password},{role}\n")
 
-# Fungsi registrasi akun baru
+
 def register():
     print("\n=== Registrasi Akun Baru ===")
     email = input("Email: ")
+    if not email.count('@') == 1:
+        print("\nEmail tidak valid.\n")
+        return
+        
+    load_users() 
     if email in users:
         print("\nEmail sudah terdaftar.\n")
         return
-    password = input("Password: ")
+
+    password = getpass.getpass("Password: ")
+    confirm_password = getpass.getpass("Konfirmasi Password: ")
+
+    if password != confirm_password:
+        print("\nPassword tidak sama.\n")
+        return
+
+    # password hash
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
 
     print("Pilih role:")
     print("1. Pasien")
     print("2. Dokter")
     print("3. Admin")
-    role_choice = input("Masukkan angka sesuai role: ")
+    role_choice = input("Masukkan angka sesuai role (default: Pasien): ")
 
-    if role_choice == '1':
-        role = "pasien"
-    elif role_choice == '2':
+    if role_choice == '2':
         role = "dokter"
     elif role_choice == '3':
         role = "admin"
-    else:
-        print("\nRole tidak valid. Registrasi dibatalkan.\n")
-        return
+    else: 
+        role = "pasien"
 
-    users[email] = {"password": password, "role": role}
-    save_user(email, password, role)
+    save_user(email, password_hash, role) # users[email] akan diupdate, lalu append ke file
     print(f"\nRegistrasi berhasil sebagai {role}!\n")
 
 # Fungsi login
-def login():
+def login_user():
     global current_user, current_role
+    load_users() 
     email = input("Email: ")
-    password = input("Password: ")
-    if email in users and users[email]["password"] == password:
+    password = getpass.getpass("Password: ")
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    if email in users and users[email]["password"] == password_hash:
         current_user = email
         current_role = users[email]["role"]
         print(f"\nLogin berhasil! Selamat datang, {email} ({current_role}).\n")
     else:
         print("\nEmail atau password salah.\n")
+        current_user = None 
+        current_role = None
 
 # Fungsi logout
 def logout():
@@ -92,13 +107,17 @@ def hapus_user():
     if current_role != "admin":
         print("\nHanya admin yang dapat menghapus user.\n")
         return
-    email = input("Masukkan email user yang ingin dihapus: ")
-    if email in users:
-        if users[email]["role"] == "admin":
-            print("\nTidak dapat menghapus sesama admin.\n")
-            return
-        del users[email]
-        save_all_users()
+    load_users() 
+    email_to_delete = input("Masukkan email user yang ingin dihapus: ")
+    if email_to_delete == current_user:
+        print("\nTidak dapat menghapus diri sendiri.\n")
+        return
+    if email_to_delete in users:
+        if users[email_to_delete]["role"] == "admin" and sum(1 for u in users.values() if u['role'] == 'admin') <=1 :
+             print("\nTidak dapat menghapus satu-satunya admin yang tersisa.\n")
+             return
+        del users[email_to_delete]
+        save_all_users() 
         print("\nUser berhasil dihapus.\n")
     else:
         print("\nUser tidak ditemukan.\n")
@@ -108,42 +127,39 @@ def edit_user():
     if current_role != "admin":
         print("\nHanya admin yang dapat mengedit user.\n")
         return
-    email = input("Masukkan email user yang ingin diedit: ")
-    if email in users:
+    load_users() 
+    email_to_edit = input("Masukkan email user yang ingin diedit passwordnya: ") # Fokus edit password
+    if email_to_edit in users:
         new_password = input("Masukkan password baru (kosongkan jika tidak ingin mengganti): ")
         if new_password:
-            users[email]["password"] = new_password
-        save_all_users()
-        print("\nUser berhasil diperbarui.\n")
+            users[email_to_edit]["password"] = new_password
+            save_all_users() 
+            print("\nPassword user berhasil diperbarui.\n")
+        else:
+            print("\nPassword tidak diubah.\n")
     else:
         print("\nUser tidak ditemukan.\n")
 
 # Main menu
 def menu():
-    load_users()
+    load_users() 
     while True:
         print("""
-===== Menu =====
+===== Menu Utama Login (Testing) =====
 1. Login
-2. Register (Semua Role)
-3. Logout
-4. Hapus User (Admin)
-5. Edit User (Admin)
-6. Keluar
+2. Register
+3. Keluar Program
 """)
         pilihan = input("Pilih menu: ")
 
         if pilihan == '1':
-            login()
+            login_user()
+            if current_user: 
+                print(f"Anda login sebagai: {current_user} ({current_role})")
+                logout() 
         elif pilihan == '2':
             register()
         elif pilihan == '3':
-            logout()
-        elif pilihan == '4':
-            hapus_user()
-        elif pilihan == '5':
-            edit_user()
-        elif pilihan == '6':
             print("\nTerima kasih, program selesai.\n")
             break
         else:
