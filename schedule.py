@@ -34,21 +34,102 @@ def load_schedules():
     else:
         open(SCHEDULE_FILE, 'w').close()
       
+
+def quick_sort(schedule_list):
+    if len(schedule_list) <= 1:
+        return schedule_list
+    pivot = schedule_list[0]
+    less = [x for x in schedule_list[1:] if x[1]["start_hour"] <= pivot[1]["start_hour"]]
+    greater = [x for x in schedule_list[1:] if x[1]["start_hour"] > pivot[1]["start_hour"]]
+    return quick_sort(less) + [pivot] + quick_sort(greater)
+
+def filtering_schedules(by):
+    if by == "day":
+        day = input(f"{Fore.YELLOW}Masukkan hari (Misal: Senin, Selasa, ...): {Style.RESET_ALL}").strip().capitalize()
+        filtered_schedules = {id: schedule for id, schedule in schedules.items() if schedule["day"] == day}
+    elif by == "doctor":
+        doctor_email = input(f"{Fore.YELLOW}Masukkan email dokter: {Style.RESET_ALL}").strip()
+        filtered_schedules = {id: schedule for id, schedule in schedules.items() if schedule["doctor_email"] == doctor_email}
+    elif by == "room":
+        room.get_rooms()
+        room_id = input(f"{Fore.YELLOW}Masukkan ID ruangan: {Style.RESET_ALL}").strip()
+        filtered_schedules = {id: schedule for id, schedule in schedules.items() if schedule["room_id"] == room_id}
+    else:
+        filtered_schedules = schedules
+
+    # Ubah dict ke list of tuples: [(id, schedule), ...]
+    schedule_list = list(filtered_schedules.items())
+
+    # Urutkan dengan quick sort berdasarkan 'start_hour'
+    sorted_schedules = quick_sort(schedule_list)
+
+    return sorted_schedules
+
 def get_schedules():
     load_schedules()
-    print(f"\n{Fore.CYAN}--- DAFTAR SEMUA JADWAL ---{Style.RESET_ALL}")
+
     if not schedules:
         print(f"{Fore.YELLOW}Belum ada data jadwal.{Style.RESET_ALL}")
-    else:
+        return
+
+    while True:
+        print(f"\n{Fore.CYAN}--- FILTER JADWAL (Admin) ---{Style.RESET_ALL}")
+        print(f"{Fore.WHITE}1. Berdasarkan Hari")
+        print("2. Berdasarkan Dokter")
+        print("3. Berdasarkan Ruangan")
+        print(f"{Fore.RED}0. Kembali ke Menu Jadwal{Style.RESET_ALL}")
+        choice = input(f"{Fore.GREEN}Pilihan: {Style.RESET_ALL}")
+        if choice == "1":
+            filtered_schedules = filtering_schedules("day")
+        elif choice == "2":
+            filtered_schedules = filtering_schedules("doctor")
+        elif choice == "3":
+            filtered_schedules = filtering_schedules("room")
+        elif choice == "0":
+            break
+        else:
+            print(f"{Fore.RED}\nPilihan tidak valid, coba lagi.{Style.RESET_ALL}")
+            continue
+
+        if not filtered_schedules:
+            print(f"{Fore.YELLOW}Belum ada data jadwal untuk filter tersebut.{Style.RESET_ALL}")
+            continue
+        
+        print(f"\n{Fore.CYAN}--- DAFTAR SEMUA JADWAL ---{Style.RESET_ALL}")
+
         doctor.muat_dokter()
         room.load_rooms()
-        for sch_id, schedule_data in schedules.items():
+        for sch_id, schedule_data in filtered_schedules:
             doc_name = doctor.daftar_dokter.get(schedule_data['doctor_email'], {}).get('nama', schedule_data['doctor_email'])
             room_name = room.rooms.get(schedule_data['room_id'], {}).get('name', f"ID: {schedule_data['room_id']}")
             print(f"{Fore.GREEN}{sch_id}. Hari: {schedule_data['day']}, Jam: {schedule_data['start_hour']}-{schedule_data['end_hour']}{Style.RESET_ALL}")
             print(f"{Fore.WHITE}   Dokter: {doc_name}")
             print(f"   Ruangan: {room_name}{Style.RESET_ALL}")
             print(f"{Fore.BLUE}{'-'*20}{Style.RESET_ALL}")
+            
+def get_all_schedules():
+    load_schedules()
+    print(f"\n{Fore.CYAN}--- DAFTAR SEMUA JADWAL ---{Style.RESET_ALL}")
+
+    if not schedules:
+        print(f"{Fore.YELLOW}Belum ada data jadwal.{Style.RESET_ALL}")
+        return
+
+
+    if not schedules:
+        print(f"{Fore.YELLOW}Belum ada data jadwal untuk filter tersebut.{Style.RESET_ALL}")
+        return
+
+    doctor.muat_dokter()
+    room.load_rooms()
+    for sch_id, schedule_data in schedules.items():
+        doc_name = doctor.daftar_dokter.get(schedule_data['doctor_email'], {}).get('nama', schedule_data['doctor_email'])
+        room_name = room.rooms.get(schedule_data['room_id'], {}).get('name', f"ID: {schedule_data['room_id']}")
+        print(f"{Fore.GREEN}{sch_id}. Hari: {schedule_data['day']}, Jam: {schedule_data['start_hour']}-{schedule_data['end_hour']}{Style.RESET_ALL}")
+        print(f"{Fore.WHITE}   Dokter: {doc_name}")
+        print(f"   Ruangan: {room_name}{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}{'-'*20}{Style.RESET_ALL}")
+
             
 def get_last_schedule_id():
     load_schedules()
@@ -121,7 +202,7 @@ def add_schedule():
 
 def edit_schedule():
     print(f"\n{Fore.CYAN}--- EDIT JADWAL (Admin) ---{Style.RESET_ALL}")
-    get_schedules() 
+    get_all_schedules()
     id_target = input(f"{Fore.YELLOW}Masukkan ID Jadwal yang akan diedit: {Style.RESET_ALL}")
     
     load_schedules() 
@@ -170,7 +251,7 @@ def edit_schedule():
 
 def delete_schedule():
     print(f"\n{Fore.CYAN}--- HAPUS JADWAL (Admin) ---{Style.RESET_ALL}")
-    get_schedules()
+    get_all_schedules()
     id_target = input(f"{Fore.YELLOW}Masukkan ID Jadwal yang akan dihapus: {Style.RESET_ALL}")
 
     load_schedules()
